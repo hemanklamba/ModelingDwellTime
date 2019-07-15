@@ -27,8 +27,7 @@ PDF <- pdf * trainProbs[,1] * trainProbs[,2]
 
 nrow = dim(trainData)[2]
 ncol = dim(trainData)[2]
-pdf("Original File Pair Plot over Parameters for Train Instances", height=100, width=100)
-pdf(pdf_file, height=100, width=100)
+pdf("Train_PP.pdf", height=100, width=100)
 par(mfrow=c(nrow, ncol), cex=0.5, mai=c(0.1, 0.1, 0.1, 0.1))
 par("mar")
 par(mar=c(1,1,1,1))
@@ -46,8 +45,7 @@ sim_data <- RVineSim(10000, cvine)
 # Save sim_data to file
 write.table(sim_data, file="Simulated Data from Fitted Copula", sep=" ", col.names = F, row.names = F)
 
-pdf("Pair PDF Plots over Sampled Instances after Copula Fitting", height=100, width=100)
-pdf(pdf_file, height=100, width=100)
+pdf("SIM_PP.pdf", height=100, width=100)
 par(mfrow=c(nrow, ncol), cex=0.5, mai=c(0.1, 0.1, 0.1, 0.1))
 par("mar")
 par(mar=c(1,1,1,1))
@@ -60,3 +58,7 @@ for(row in 1:ncol)
         #plot(mod_data[,row], mod_data[,col],cex=0.1)
         plot(fhat, display="filled.contour2", cont=seq(10,90, by=10))}
 dev.off()
+
+pdf <- RVinePDF(testData, cvine) * testProbs[,1] * testProbs[,2]
+logpdf <- log(pdf)
+write.table(logpdf, file="LogPDF.txt", sep=" ", col.names=F, row.names=T)

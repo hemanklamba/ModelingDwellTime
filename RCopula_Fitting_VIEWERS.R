@@ -4,7 +4,7 @@ library(ks)
 library(MASS)
 
 size=50
-setwd('RESULTS_SAMPLE/Viewers')
+setwd('./RESULTS_SAMPLE/Viewers')
 trainFile='TrainData_50.csv'
 testFile='TestData_50.csv'
 trainProbsFile='TrainProbs_50.csv'
@@ -28,8 +28,7 @@ PDF <- pdf * trainProbs[,1] * trainProbs[,2] * trainProbs[,3] * trainProbs[,4] *
 
 nrow = dim(trainData)[2]
 ncol = dim(trainData)[2]
-pdf("Pair Plot over Parameters for training instances", height=100, width=100)
-pdf(pdf_file, height=100, width=100)
+pdf("Train_PP.pdf", height=100, width=100)
 par(mfrow=c(nrow, ncol), cex=0.5, mai=c(0.1, 0.1, 0.1, 0.1))
 par("mar")
 par(mar=c(1,1,1,1))
@@ -44,11 +43,9 @@ for(row in 1:ncol)
 dev.off()
 
 sim_data <- RVineSim(100000, cvine)
-# Save sim_data to file
-write.table(sim_data, file="Simulated Data from Fitted Copula", sep=" ", col.names = F, row.names = F)
+write.table(sim_data, file="SIM_Data.txt", sep=" ", col.names = F, row.names = F)
 
-pdf("Pair PDF Plots over Sampled Instances after Copula Fitting", height=100, width=100)
-pdf(pdf_file, height=100, width=100)
+pdf("Sampled_PP.pdf", height=100, width=100)
 par(mfrow=c(nrow, ncol), cex=0.5, mai=c(0.1, 0.1, 0.1, 0.1))
 par("mar")
 par(mar=c(1,1,1,1))
@@ -61,3 +58,7 @@ for(row in 1:ncol)
         #plot(mod_data[,row], mod_data[,col],cex=0.1)
         plot(fhat, display="filled.contour2", cont=seq(10,90, by=10))}
 dev.off()
+
+pdf <- RVinePDF(testData, cvine) * testProbs[,1] * testProbs[,2] * testProbs[,3] * testProbs[,4] * testProbs[,5] * testProbs[,6]
+logpdf <- log(pdf)
+write.table(logpdf, file="LogPDF.txt", sep=" ", col.names=F, row.names=T)
