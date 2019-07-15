@@ -1,0 +1,3 @@
+python LoopTrue_ParallelFits.py
+python copula_fitting_with_R_trueloop.py 50
+RScript RCopula_Fitting_TRUE.R

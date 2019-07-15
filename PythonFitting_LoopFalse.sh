@@ -1,0 +1,3 @@
+python Truncated_LoopFalse_ParallelFits.py
+python copula_fitting_with_R.py 50
+RScript RCopula_Fitting.R

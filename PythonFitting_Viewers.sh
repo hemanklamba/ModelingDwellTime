@@ -1,0 +1,3 @@
+python Truncated_Viewers_ParallelFits.py
+python copula_fitting_viewers2.py 50
+RScript RCopula_Fitting_VIEWERS.R

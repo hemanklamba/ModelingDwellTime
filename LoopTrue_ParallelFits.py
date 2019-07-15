@@ -2,7 +2,6 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-import google.auth
 import time
 from datetime import timedelta
 import dask.dataframe as dd
@@ -25,54 +24,36 @@ def compute_BIC(data, n_params, neg_ll):
     bic = (np.log(data.shape[0]) * n_params) - 2 * -neg_ll
     return bic
 
-def run_Parametric(data):
-    print "Fitting Fisk"
+def run_Parametric(story_id, data):
+    print "["+str(story_id)+"]Fitting Fisk"
     fisk_params = fisk.fit(data, floc=0)
     fisk_nll = fisk.nnlf(fisk_params, data)
     fisk_rvs = fisk.rvs(*fisk_params, size=data.shape[0])
     ks_fisk = ks_2samp(data, fisk_rvs)
     bic_fisk = compute_BIC(data, len(fisk_params), fisk_nll)
 
-    print "Fitting IG"
+    print "[" + str(story_id) + "]Fitting IG"
     ig_params = invgauss.fit(data, floc=0)
     ig_nll = invgauss.nnlf(ig_params, data)
     ig_rvs = invgauss.rvs(*ig_params, size=data.shape[0])
     ks_ig = ks_2samp(data, ig_rvs)
     bic_ig = compute_BIC(data, len(ig_params), ig_nll)
 
-    print "Fitting LN"
+    print "[" + str(story_id) + "]Fitting LN"
     ln_params = lognorm.fit(data, floc=0)
     ln_nll = lognorm.nnlf(ln_params, data)
     ln_rvs = lognorm.rvs(*ln_params, size=data.shape[0])
     ks_ln = ks_2samp(data, ln_rvs)
     bic_ln = compute_BIC(data, len(ln_params), ln_nll)
 
-    #print "Fitting GP"
-    #gp_params = genpareto.fit(data, floc=0)
-    #gp_nll = genpareto.nnlf(gp_params, data)
-    #gp_rvs = genpareto.rvs(*gp_params, size=data.shape[0])
-    #ks_gp = ks_2samp(data, gp_rvs)
-
-    #print "Fitting PL"
-    #pl_params = powerlaw.fit(data, floc=0)
-    #pl_nll = powerlaw.nnlf(pl_params, data)
-    #pl_rvs = powerlaw.rvs(*pl_params, size=data.shape[0])
-    #ks_pl = ks_2samp(data, pl_rvs)
-
-    #print "Fitting EXP"
-    #exp_params = expon.fit(data, floc=0)
-    #exp_nll = expon.nnlf(exp_params, data)
-    #exp_rvs = expon.rvs(*exp_params, size=data.shape[0])
-    #ks_exp = ks_2samp(data, exp_rvs)
-
-    print "Fitting Weibull"
+    print "[" + str(story_id) + "]Fitting Weibull"
     weib_params = weibull_min.fit(data, floc=0)
     weib_nll = weibull_min.nnlf(weib_params, data)
     weib_rvs = weibull_min.rvs(*weib_params, size=data.shape[0])
     ks_weib = ks_2samp(data, weib_rvs)
     bic_weib = compute_BIC(data, len(weib_params), weib_nll)
 
-    print "Fitting Gamma"
+    print "[" + str(story_id) + "]Fitting Gamma"
     gamma_params = gamma.fit(data, floc=0)
     gamma_nll = gamma.nnlf(gamma_params, data)
     gamma_rvs = gamma.rvs(*gamma_params, size=data.shape[0])
@@ -86,25 +67,51 @@ def run_Parametric(data):
 
 def fit_model(args):
     story_id = args[0]
-    snaptime = args[1]
-    nv = args[2]
-    viewTime_array = args[3]
+    nv = args[1]
+    viewTime_array = args[2]
 
-    model_results = run_Parametric(viewTime_array)
-    return [story_id, snaptime, nv, model_results]
+    model_results = run_Parametric(story_id,viewTime_array)
+    return [story_id, nv, model_results]
 
-def run_Models_parallel(story_ids, snaptimes, tv_arr, nv_arr, lthreshold):
+def run_Models_parallel(story_ids, tv_arr, nv_arr, lthreshold):
+    print(story_ids[0])
+    print(tv_arr[0])
+    print(nv_arr[0])
     pbar = ProgressBar()
     args = []
     for i in pbar(range(len(story_ids))):
         if nv_arr[i] > lthreshold:
-            args.append([story_ids[i], snaptimes[i], nv_arr[i], tv_arr[i]])
+            args.append([story_ids[i], nv_arr[i], tv_arr[i]])
 
     results = Parallel(n_jobs=-1)(map(delayed(fit_model), args))
     return results
 
+def read_file(in_file):
+    story_ids = []
+    tv_arr = []
+    nv_arr = []
+
+    f = open(in_file, 'r')
+    line = f.readline()
+    while line:
+        line = line.replace("\n", "")
+        split = line.split("\t")
+        story_id = split[0]
+        story_ids.append(story_id)
+        split = split[1].split(",")
+        arr_views = []
+        for i in range(len(split)):
+            arr_views.append(float(split[i]))
+        arr_views = np.array(arr_views)
+        tv_arr.append(arr_views)
+        nv_arr.append(len(arr_views))
+        line = f.readline()
+    f.close()
+
+    return story_ids, tv_arr, nv_arr
+
 if __name__ == '__main__':
-    OUT_DIR = "OUT_DIR"
+    OUT_DIR = "RESULTS_SAMPLE"
     try:
         os.mkdir(os.path.join(OUT_DIR,"Snaps_LoopTrue"))
     except:
@@ -112,40 +119,19 @@ if __name__ == '__main__':
     
     OUT_DIR = os.path.join(OUT_DIR,"Snaps_LoopTrue")
 
-    print "Loading Overall Data"
-    fname = "INPUT FILE in GS bucket containing the snap id, duration and views"
-    df = dd.read_csv(fname, dtype={'f0_': 'float64'})
-    tv_df = df.compute()
 
-    story_ids = []
-    snaptimes = []
-    tv_arr = []
-    nv_arr = []
+    print "Loading Overall Data"
+    fname = "DATA/Sample_LoopTrue_Views.txt"
+    story_ids, tv_arr, nv_arr = read_file(fname)
+
+
     pbar = ProgressBar()
 
-    tview_arr = tv_df['tview_arr'].values
-    #snaptime = tv_df['a_snaptime'].values
-    snaptime = tv_df['f0_'].values;
-    storyIds = tv_df['story_snap_id'].values
-
-    for i in pbar(range(len(tv_df))):
-        temp = np.array([float(x) for x in tview_arr[i].split(",")])
-        stime = float(snaptime[i])
-        if (stime >= 4.0) and (stime < 11.0):
-            temp = temp[temp > 0]
-            nv_arr.append(temp.shape[0])
-            snaptimes.append(float(snaptime[i]))
-            tv_arr.append(np.array(temp) / float(snaptime[i]))
-            story_ids.append(storyIds[i])
-
-    print len(story_ids), len(snaptimes), len(tv_arr), len(nv_arr)
-
     story_ids = np.array(story_ids)
-    snaptimes = np.array(snaptimes)
     tv_arr = np.array(tv_arr)
     nv_arr = np.array(nv_arr)
 
     lthreshold = 100
-    results = run_Models_parallel(story_ids, snaptimes, tv_arr, nv_arr, lthreshold)
-    # out file - pickled file where to dump the fits from all candidate models
+    results = run_Models_parallel(story_ids, tv_arr, nv_arr, lthreshold)
+    out_file = os.path.join(OUT_DIR, "LoopTrue.pkl")
     pickle.dump(results,open(out_file, 'w'))

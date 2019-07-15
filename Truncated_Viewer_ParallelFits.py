@@ -7,9 +7,6 @@ from joblib import Parallel, delayed
 import cPickle as pickle
 import dask.dataframe as dd
 import time
-import google.auth
-from google.cloud import storage
-
 
 '''
 LOGNORMAL
@@ -678,6 +675,7 @@ def run_Models_parallel(tviews, ids):
 
     print 'Got', len(ids), 'viewers';
     for i in range(len(tviews)):
+        print(len(tviews[i]))
         if len(tviews[i]) > 100:
             args.append([ids[i], tviews[i]])
     print 'Will fit on', len(args), 'inputs';
@@ -686,23 +684,6 @@ def run_Models_parallel(tviews, ids):
     results = Parallel(n_jobs=-1)(map(delayed(fit_models), args))
     print("Time taken to run parallel fits=" + str(time.time() - start_time))
     return results
-
-def get_client():
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '../../../creds.json'
-    os.environ['GOOGLE_CLOUD_PROJECT'] = 'research-prototypes'
-
-    credentials, project = google.auth.default()
-    client = storage.Client(project='research-prototypes', credentials=credentials)
-    return client
-
-def get_bucket(client, bucket_name):
-    bucket = client.get_bucket(bucket_name)
-    return bucket
-
-def get_blob(client, bucket, fname):
-    blob = storage.Blob(fname, bucket)
-    content = blob.download_as_string()
-    return content
 
 def compute_BIC(data, n_params, neg_ll):
     bic = (np.log(data.shape[0]) * n_params) - 2 * -neg_ll
@@ -758,6 +739,7 @@ def fit_models(args):
 
     return [ln_model_res, fisk_model_res, ig_model_res, wb_model_res, gamma_model_res]
 
+'''
 def process_content(content):
     content = content.decode('utf-8')
     lines = content.split("\n")
@@ -779,35 +761,48 @@ def process_content(content):
 
     results = run_Models_parallel(tviews, ids)
     return results
+'''
 
-def overall_proces(out_dir, log_file):
-    fw = open(log_file, 'a')
-    client = get_client()
-    bucket = get_bucket(client, 'neil-bucket')
+def read_file(in_file):
+    f = open(in_file, 'r')
 
-    # Doing only for a sample of file
-    for i in range(2):
-        fname = "INPUT_GS_FILE containing view times per user."
-        content = get_blob(client, bucket, fname)
-        start_time = time.time()
-        results = process_content(content)
-        with open(os.path.join(out_dir,fname+".pkl"),'wb') as f:
-            pickle.dump(results, f)
-        print("Time taken="+str(time.time() - start_time))
-        fw.write(str(i)+"\n")
-        fw.flush()
+    ids = []
+    tviews = []
 
-    fw.close()
+    line =  f.readline()
+    while line:
+        line = line.replace('\n', '')
+        split = line.split('\t')
+        ids.append(split[0])
+        split = split[1].split(",")
+        tv_arr = []
+        for i in range(len(split)):
+            tv_arr.append(float(split[i]))
+        tv_arr = np.array(tv_arr)
+        tviews.append(tv_arr)
+        line = f.readline()
+    f.close()
+
+    ids = np.array(ids)
+    tviews = np.array(tviews)
+
+    return tviews, ids
+
+def overall_proces(inp_file, out_dir):
+    out_file = os.path.join(out_dir, "viewers.pkl")
+    tviews, ids = read_file(inp_file)
+    results = run_Models_parallel(tviews, ids)
+
+    with open(out_file,'wb') as f:
+        pickle.dump(results, f)
 
 if __name__ == '__main__':
-    OUT_DIR = "OUTPUT DIR"
+    inp_file = "DATA/Viewers.txt"
+    OUT_DIR = "RESULTS_SAMPLE"
     try:
         os.mkdir(os.path.join(OUT_DIR, "Viewers"))
     except:
         pass
 
     OUT_DIR = os.path.join(OUT_DIR, "Viewers")
-
-    log_file = os.path.join(OUT_DIR, "LOG.txt")
-
-    overall_proces(OUT_DIR, log_file)
+    overall_proces(inp_file, OUT_DIR)

@@ -424,8 +424,7 @@ def compute_BIC(data, n_params, neg_ll):
 
 def fit_truncated_distributions(arg_arr):
     story_id = arg_arr[0]
-    snapTime = arg_arr[1]
-    data = arg_arr[2]
+    data = arg_arr[1]
 
     distribution = TruncatedFisk_Prior
     rv_fisk = distribution(data)
@@ -467,56 +466,55 @@ def fit_truncated_distributions(arg_arr):
     rvs_gamma = truncgamma_rvs(res_gamma.params[0], res_gamma.params[1], res_gamma.params[2], data.shape[0])
     ksResults_gamma = ks_2samp(data, rvs_gamma)
 
-    return [story_id, snapTime, data.shape[0], neg_ll_fisk, neg_ll_ig, neg_ll_ln, neg_ll_weib, neg_ll_gamma,
+    return [story_id, data.shape[0], neg_ll_fisk, neg_ll_ig, neg_ll_ln, neg_ll_weib, neg_ll_gamma,
             ksResults_fisk, ksResults_ig, ksResults_ln, ksResults_weib, ksResults_gamma,
             bic_fisk, bic_ig, bic_ln, bic_weib, bic_gamma,
             res_fisk.params, res_ig.params, res_ln.params, res_weib.params, res_gamma.params]
 
+def read_file(in_file):
+    story_ids = []
+    tv_arr = []
+    nv_arr = []
+
+    f = open(in_file, 'r')
+    line = f.readline()
+    while line:
+        line = line.replace("\n", "")
+        split = line.split("\t")
+        story_id = split[0]
+        story_ids.append(story_id)
+        split = split[1].split(",")
+        arr_views = []
+        for i in range(len(split)):
+            arr_views.append(float(split[i]))
+        arr_views = np.array(arr_views)
+        tv_arr.append(arr_views)
+        nv_arr.append(len(arr_views))
+        line = f.readline()
+    f.close()
+
+    return story_ids, tv_arr, nv_arr
+
 def parallelParamFit(lthreshold):
-    fname = "INPUT_FILE_stored_in_GS_storage_file - containing - id of story, duration of story, and the view times for every view"
-    df = dd.read_csv(fname)
-    tv_df = df.compute()
-    print tv_df.shape
-    print tv_df.columns
+    fname = "DATA/Sample_LoopFalse_Views.txt"
+    story_ids, tv_arr, nv_arr = read_file(fname)
 
-    story_ids = tv_df['story_snap_id'].values
-    snap_times = tv_df['f0_'].values
-    viewed_times = tv_df['tview_arr'].values
-
-    non_nan = ~np.isnan(snap_times)
-    story_ids = story_ids[non_nan]
-    snap_times = snap_times[non_nan]
-    viewed_times = viewed_times[non_nan]
-
-    lt10 = snap_times < 11
-
-    story_ids = story_ids[lt10]
-    snap_times = snap_times[lt10]
-    viewed_times = viewed_times[lt10]
+    story_ids = np.array(story_ids)
+    tv_arr = np.array(tv_arr)
+    nv_arr = np.array(nv_arr)
 
     args = []
     for i in range(story_ids.shape[0]):
         story_id = story_ids[i]
-        snapTime = snap_times[i]
+        viewTime_arr = tv_arr[i]
+        args.append([story_id, viewTime_arr])
 
-        viewTime_arr = np.array([float(x) for x in viewed_times[i].split(",")])
-        viewTime_arr[viewTime_arr > snapTime] = snapTime
-        viewTime_arr = viewTime_arr[viewTime_arr > 0]
-
-        binned_snapTime = int(snapTime)
-
-        if binned_snapTime >= 4:
-            viewTime_arr = viewTime_arr / snapTime
-            if viewTime_arr.shape[0] > lthreshold:
-                args.append([story_id, snapTime, viewTime_arr])
-
-    #results = Parallel(n_jobs=-1)(map(delayed(fit_0loc_distributions), args))
     results = Parallel(n_jobs=-1)(map(delayed(fit_truncated_distributions), args))
     return results
 
 if __name__ == '__main__':
     # Enter output directory here
-    OUT_DIR = "OUT_DIR"
+    OUT_DIR = "RESULTS_SAMPLE"
     try:
         os.mkdir(os.path.join(OUT_DIR, "Snaps_LoopFalse"))
     except:
@@ -526,6 +524,8 @@ if __name__ == '__main__':
 
     lthreshold = 100
     results = parallelParamFit(lthreshold)
+
     # out_file - pickled file containing the fits from all candidate models
+    out_file = os.path.join(OUT_DIR, "Snaps_LoopFalse.pkl")
     pickle.dump(results, open(out_file,'w'))
 

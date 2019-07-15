@@ -3,10 +3,11 @@ library(fitdistrplus)
 library(ks)
 library(MASS)
 
-trainFile='Train Data Parameters'
-testFile='Test Data Parameters'
-trainProbsFile='File containing probability for observing each train instance according to the ind. models'
-testProbsFile='File containing probability for observing each test instance according to the ind. models'
+setwd('./RESULTS_SAMPLE/Snaps_LoopTrue')
+trainFile='TrainData_50.csv'
+testFile='TestData_50.csv'
+trainProbsFile='TrainProbs_50.csv'
+testProbsFile='TestProbs_50.csv'
 
 trainData <- read.csv(trainFile, sep=' ', header=FALSE)
 testData <- read.csv(testFile, sep=' ', header=FALSE)
